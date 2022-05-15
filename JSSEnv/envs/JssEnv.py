@@ -224,7 +224,7 @@ class JssEnv(gym.Env):
                             self.legal_actions[job] = False
                             self.nb_legal_actions -= 1
 
-    def _check_no_op(self): 
+    def _check_no_op(self):
         """ Toggles Nope-Action:
                  Nope Action is illegal when:
                     - No reason to make it legal exists or
@@ -335,11 +335,9 @@ class JssEnv(gym.Env):
         if not self._allow_illegal_actions:
             raise gym.error.InvalidAction("Selected action is illegal. Set allow_illegal_actions=True in env config")
 
-        reward = -(10 ** 2) * self.max_time_op
+        reward = -(10 ** 1) * self.max_time_op
         scaled_reward = self._reward_scaler(reward)
         return scaled_reward
-
-
 
     def _handle_nope_action(self):
         reward = 0.0
