@@ -176,48 +176,52 @@ class JssEnv(gym.Env):
         return self._get_current_state_representation()
 
     def _prioritization_non_final(self):
-        if self.nb_machine_legal >= 1:
-            for machine in range(self.machines):
-                if self.machine_legal[machine]:
-                    final_job = list()
-                    non_final_job = list()
-                    min_non_final = float("inf")
-                    for job in range(self.jobs):
-                        if (
-                            self.needed_machine_jobs[job] == machine
-                            and self.legal_actions[job]
-                        ):
-                            if self.todo_time_step_job[job] == (self.machines - 1):
-                                final_job.append(job)
-                            else:
-                                current_time_step_non_final = self.todo_time_step_job[
-                                    job
-                                ]
-                                time_needed_legal = self.instance_matrix[job][
-                                    current_time_step_non_final
-                                ][1]
-                                machine_needed_nextstep = self.instance_matrix[job][
-                                    current_time_step_non_final + 1
-                                ][0]
-                                if (
-                                    self.time_until_available_machine[
-                                        machine_needed_nextstep
-                                    ]
-                                    == 0
-                                ):
-                                    min_non_final = min(
-                                        min_non_final, time_needed_legal
-                                    )
-                                    non_final_job.append(job)
-                    if len(non_final_job) > 0:
-                        for job in final_job:
-                            current_time_step_final = self.todo_time_step_job[job]
-                            time_needed_legal = self.instance_matrix[job][
-                                current_time_step_final
-                            ][1]
-                            if time_needed_legal > min_non_final:
-                                self.legal_actions[job] = False
-                                self.nb_legal_actions -= 1
+        """ Makes jobs, which have one operation left (: final jobs), illegal,
+         if they need more time than jobs, which are not final.
+          Non-final jobs, where the next machine is not available are ignored. """
+
+        if self.nb_machine_legal < 1:
+            return
+
+        for machine in range(self.machines):
+            if self.machine_legal[machine]:
+                final_job = list()
+                non_final_job = list()
+                min_non_final = float("inf")
+
+                for job in range(self.jobs):
+                    job_not_needed = self.needed_machine_jobs[job] != machine
+                    job_illegal = not self.legal_actions[job]
+
+                    if job_not_needed or job_illegal:
+                        continue
+
+                    job_has_one_op_left = self.todo_time_step_job[job] == (self.machines - 1)
+                    if job_has_one_op_left:
+                        final_job.append(job)
+                        continue
+
+                    current_time_step_non_final = self.todo_time_step_job[job]
+                    current_instance_matrix_entry = self.instance_matrix[job][current_time_step_non_final]
+                    next_instance_matrix_entry = self.instance_matrix[job][current_time_step_non_final + 1]
+                    time_needed_legal = current_instance_matrix_entry[1]
+                    machine_needed_nextstep = next_instance_matrix_entry[0]
+
+                    machine_needed_nextstep_available = self.time_until_available_machine[machine_needed_nextstep] == 0
+
+                    if machine_needed_nextstep_available:
+                        min_non_final = min(min_non_final, time_needed_legal)
+                        non_final_job.append(job)
+
+                if len(non_final_job) > 0:
+                    for job in final_job:
+                        current_time_step_final = self.todo_time_step_job[job]
+                        current_instance_matrix_entry_final = self.instance_matrix[job][current_time_step_final]
+                        time_needed_legal = [1]
+                        if time_needed_legal > min_non_final:
+                            self.legal_actions[job] = False
+                            self.nb_legal_actions -= 1
+
 
     def _check_no_op(self):
         self.legal_actions[self.jobs] = False
