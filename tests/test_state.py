@@ -74,7 +74,7 @@ class TestState(unittest.TestCase):
 
     def test_random_episode1(self):
         """Threw IndexError: pop from empty list until it was fixed"""
-        seed_list = [42, 3, 314]
+        seed_list = [42, 9, 31415]
         env = gym.make(
             "JSSEnv:JSSEnv-v1",
             env_config={"instance_path": "../JSSEnv/envs/instances/ta80"},
@@ -86,7 +86,9 @@ class TestState(unittest.TestCase):
             while True:
                 action = env.action_space.sample()
                 obs, reward, done, _ = env.step(action)
-                env.render()
+                if len(env.legal_actions) == 0:
+                    print("Deadlock, no legal actions")
+                    break
                 if done:
                     print("Episode ended")
                     break
