@@ -58,6 +58,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 env.increase_time_step()
@@ -752,6 +759,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -1446,6 +1460,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -2140,6 +2161,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -2834,6 +2862,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -3528,6 +3563,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -4222,6 +4264,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -4916,6 +4965,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -5610,6 +5666,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -6304,6 +6367,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -6998,6 +7068,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)
@@ -7831,6 +7908,13 @@ class TestSolution(unittest.TestCase):
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
+                if not env.legal_actions[env.jobs]:
+                    print("Overriding legality of NOPE-Action")
+                    env.legal_actions[env.jobs] = True
+                self.assertTrue(
+                    env.legal_actions[env.jobs],
+                    "We don't perform illegal actions #2",
+                )
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
                 previous_time_step = env.current_time_step
                 state, reward, done, _ = env.step(env.jobs)

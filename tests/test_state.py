@@ -4,6 +4,37 @@ import numpy as np
 
 
 class TestState(unittest.TestCase):
+
+    def test_illegal_actions(self):
+        seed = 9
+        env = gym.make(
+            "JSSEnv:JSSEnv-v1",
+            env_config={"instance_path": "../JSSEnv/envs/instances/ta80",
+                        "allow_illegal_actions": True},
+        )
+        env.seed(seed)
+        _ = env.reset()
+
+        illegal_actions_counter = 0
+        total_actions_counter = 0
+        print(env.action_space)
+        for ii in range(100):
+            random_action = env.action_space.sample()
+            if not env.legal_actions[random_action]:
+                print(f"Action {random_action} is illegal.")
+                illegal_actions_counter += 1
+            total_actions_counter +=1
+            obs, reward, done, _ = env.step(random_action)
+
+            env.render()
+            if done:
+                print("Episode ended")
+                _ = env.reset()
+
+            env.close()
+        print(illegal_actions_counter)
+        print(total_actions_counter)
+
     def test_last_action(self):
         """Threw IndexError: index 101 is out of bounds for axis 0 with size 100 until it was fixed"""
 
@@ -43,7 +74,7 @@ class TestState(unittest.TestCase):
 
     def test_random_episode1(self):
         """Threw IndexError: pop from empty list until it was fixed"""
-        seed_list = [42, 3, 314, 315]
+        seed_list = [42, 3, 314]
         env = gym.make(
             "JSSEnv:JSSEnv-v1",
             env_config={"instance_path": "../JSSEnv/envs/instances/ta80"},

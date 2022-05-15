@@ -29,9 +29,11 @@ class JssEnv(gym.Env):
         if env_config is None:
             env_config = {
                 "instance_path": str(Path(__file__).parent.absolute())
-                + "/instances/ta80"
+                + "/instances/ta80",
+                "allow_illegal_actions": True
             }
-        instance_path = env_config["instance_path"]
+        instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta80")
+        self._allow_illegal_actions = env_config.get("allow_illegal_actions", True)
 
         # initial values for variables used for instance
         self.jobs = 0
@@ -222,8 +224,20 @@ class JssEnv(gym.Env):
                             self.legal_actions[job] = False
                             self.nb_legal_actions -= 1
 
+    def _check_no_op(self): 
+        """ Toggles Nope-Action:
+                 Nope Action is illegal when:
+                    - No reason to make it legal exists or
+                    - self.next_time_step is Empty or
+                    - More than 3 machines are legal or
+                    - More than 4 jobs are legal or
+                    - At least one jobs ends before the next_time_steps
+                Nope Action is legal when:
+                    - For at least one illegal job: ???
 
-    def _check_no_op(self):
+
+                NOTE: First loop defines horizons for second loop (I think?)
+                """
         self.legal_actions[self.jobs] = False
         if (
             len(self.next_time_step) > 0
@@ -251,21 +265,21 @@ class JssEnv(gym.Env):
             for job in range(self.jobs):
                 if not self.legal_actions[job]:
                     if (
-                        self.time_until_finish_current_op_jobs[job] > 0
-                        and self.todo_time_step_job[job] + 1 < self.machines
+                            self.time_until_finish_current_op_jobs[job] > 0
+                            and self.todo_time_step_job[job] + 1 < self.machines
                     ):
                         time_step = self.todo_time_step_job[job] + 1
                         time_needed = (
-                            self.current_time_step
-                            + self.time_until_finish_current_op_jobs[job]
+                                self.current_time_step
+                                + self.time_until_finish_current_op_jobs[job]
                         )
                         while (
-                            time_step < self.machines - 1 and max_horizon > time_needed
+                                time_step < self.machines - 1 and max_horizon > time_needed
                         ):
                             machine_needed = self.instance_matrix[job][time_step][0]
                             if (
-                                max_horizon_machine[machine_needed] > time_needed
-                                and self.machine_legal[machine_needed]
+                                    max_horizon_machine[machine_needed] > time_needed
+                                    and self.machine_legal[machine_needed]
                             ):
                                 machine_next.add(machine_needed)
                                 if len(machine_next) == self.nb_machine_legal:
@@ -274,22 +288,22 @@ class JssEnv(gym.Env):
                             time_needed += self.instance_matrix[job][time_step][1]
                             time_step += 1
                     elif (
-                        not self.action_illegal_no_op[job]
-                        and self.todo_time_step_job[job] < self.machines
+                            not self.action_illegal_no_op[job]
+                            and self.todo_time_step_job[job] < self.machines
                     ):
                         time_step = self.todo_time_step_job[job]
                         machine_needed = self.instance_matrix[job][time_step][0]
                         time_needed = (
-                            self.current_time_step
-                            + self.time_until_available_machine[machine_needed]
+                                self.current_time_step
+                                + self.time_until_available_machine[machine_needed]
                         )
                         while (
-                            time_step < self.machines - 1 and max_horizon > time_needed
+                                time_step < self.machines - 1 and max_horizon > time_needed
                         ):
                             machine_needed = self.instance_matrix[job][time_step][0]
                             if (
-                                max_horizon_machine[machine_needed] > time_needed
-                                and self.machine_legal[machine_needed]
+                                    max_horizon_machine[machine_needed] > time_needed
+                                    and self.machine_legal[machine_needed]
                             ):
                                 machine_next.add(machine_needed)
                                 if len(machine_next) == self.nb_machine_legal:
@@ -298,9 +312,15 @@ class JssEnv(gym.Env):
                             time_needed += self.instance_matrix[job][time_step][1]
                             time_step += 1
 
+    def _action_is_legal(self, action):
+        return self.legal_actions[action]
+
     def step(self, action: int):
         nope_action_selected = action == self.jobs
-        if nope_action_selected:
+
+        if not self._action_is_legal(action):
+            scaled_reward = self._handle_illegal_action(action)
+        elif nope_action_selected:
             scaled_reward = self._handle_nope_action()
         else:
             scaled_reward = self._handle_job_action(action)
@@ -310,6 +330,16 @@ class JssEnv(gym.Env):
             self._is_done(),
             {},
         )
+
+    def _handle_illegal_action(self, action):
+        if not self._allow_illegal_actions:
+            raise gym.error.InvalidAction("Selected action is illegal. Set allow_illegal_actions=True in env config")
+
+        reward = -(10 ** 2) * self.max_time_op
+        scaled_reward = self._reward_scaler(reward)
+        return scaled_reward
+
+
 
     def _handle_nope_action(self):
         reward = 0.0
