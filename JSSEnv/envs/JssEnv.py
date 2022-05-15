@@ -29,7 +29,7 @@ class JssEnv(gym.Env):
         if env_config is None:
             env_config = {
                 "instance_path": str(Path(__file__).parent.absolute())
-                + "/instances/ta80",
+                                 + "/instances/ta80",
                 "allow_illegal_actions": True
             }
         instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta80")
@@ -240,9 +240,9 @@ class JssEnv(gym.Env):
                 """
         self.legal_actions[self.jobs] = False
         if (
-            len(self.next_time_step) > 0
-            and self.nb_machine_legal <= 3
-            and self.nb_legal_actions <= 4
+                len(self.next_time_step) > 0
+                and self.nb_machine_legal <= 3
+                and self.nb_legal_actions <= 4
         ):
             machine_next = set()
             next_time_step = self.next_time_step[0]
@@ -374,8 +374,8 @@ class JssEnv(gym.Env):
         self.solution[action][current_time_step_job] = self.current_time_step
         for job in range(self.jobs):
             if (
-                self.needed_machine_jobs[job] == machine_needed
-                and self.legal_actions[job]
+                    self.needed_machine_jobs[job] == machine_needed
+                    and self.legal_actions[job]
             ):
                 self.legal_actions[job] = False
                 self.nb_legal_actions -= 1
@@ -419,11 +419,11 @@ class JssEnv(gym.Env):
                     0, self.time_until_finish_current_op_jobs[job] - difference
                 )
                 self.state[job][1] = (
-                    self.time_until_finish_current_op_jobs[job] / self.max_time_op
+                        self.time_until_finish_current_op_jobs[job] / self.max_time_op
                 )
                 self.total_perform_op_time_jobs[job] += performed_op_job
                 self.state[job][3] = (
-                    self.total_perform_op_time_jobs[job] / self.max_time_jobs
+                        self.total_perform_op_time_jobs[job] / self.max_time_jobs
                 )
                 if self.time_until_finish_current_op_jobs[job] == 0:
                     self.total_idle_time_jobs[job] += difference - was_left_time
@@ -437,14 +437,14 @@ class JssEnv(gym.Env):
                             self.todo_time_step_job[job]
                         ][0]
                         self.state[job][4] = (
-                            max(
-                                0,
-                                self.time_until_available_machine[
-                                    self.needed_machine_jobs[job]
-                                ]
-                                - difference,
-                            )
-                            / self.max_time_op
+                                max(
+                                    0,
+                                    self.time_until_available_machine[
+                                        self.needed_machine_jobs[job]
+                                    ]
+                                    - difference,
+                                )
+                                / self.max_time_op
                         )
                     else:
                         self.needed_machine_jobs[job] = -1
@@ -469,9 +469,9 @@ class JssEnv(gym.Env):
             if self.time_until_available_machine[machine] == 0:
                 for job in range(self.jobs):
                     if (
-                        self.needed_machine_jobs[job] == machine
-                        and not self.legal_actions[job]
-                        and not self.illegal_actions[machine][job]
+                            self.needed_machine_jobs[job] == machine
+                            and not self.legal_actions[job]
+                            and not self.illegal_actions[machine][job]
                     ):
                         self.legal_actions[job] = True
                         self.nb_legal_actions += 1
@@ -486,33 +486,52 @@ class JssEnv(gym.Env):
             return True
         return False
 
-    def render(self, mode="human"):
-        df = []
-        for job in range(self.jobs):
-            i = 0
-            while i < self.machines and self.solution[job][i] != -1:
-                dict_op = dict()
-                dict_op["Task"] = "Job {}".format(job)
-                start_sec = self.start_timestamp + self.solution[job][i]
-                finish_sec = start_sec + self.instance_matrix[job][i][1]
-                dict_op["Start"] = datetime.datetime.fromtimestamp(start_sec)
-                dict_op["Finish"] = datetime.datetime.fromtimestamp(finish_sec)
-                dict_op["Resource"] = "Machine {}".format(
-                    self.instance_matrix[job][i][0]
+    def render(self, mode="plotly"):
+        if mode == "plotly":
+            df = []
+            for job in range(self.jobs):
+                machine_no = 0
+                while machine_no < self.machines and self.solution[job][machine_no] != -1:
+                    dict_op = dict()
+                    dict_op["Task"] = "Job {}".format(job)
+                    start_sec = self.start_timestamp + self.solution[job][machine_no]
+                    finish_sec = start_sec + self.instance_matrix[job][machine_no][1]
+                    dict_op["Start"] = datetime.datetime.fromtimestamp(start_sec)
+                    dict_op["Finish"] = datetime.datetime.fromtimestamp(finish_sec)
+                    dict_op["Resource"] = "Machine {}".format(
+                        self.instance_matrix[job][machine_no][0]
+                    )
+                    df.append(dict_op)
+                    machine_no += 1
+            fig = None
+            if len(df) > 0:
+                df = pd.DataFrame(df)
+                fig = ff.create_gantt(
+                    df,
+                    index_col="Resource",
+                    colors=self.colors,
+                    show_colorbar=True,
+                    group_tasks=True,
                 )
-                df.append(dict_op)
-                i += 1
-        fig = None
-        if len(df) > 0:
-            df = pd.DataFrame(df)
-            fig = ff.create_gantt(
-                df,
-                index_col="Resource",
-                colors=self.colors,
-                show_colorbar=True,
-                group_tasks=True,
-            )
-            fig.update_yaxes(
-                autorange="reversed"
-            )  # otherwise tasks are listed from the bottom up
-        return fig
+                fig.update_yaxes(
+                    autorange="reversed"
+                )  # otherwise tasks are listed from the bottom up
+            return fig
+        elif mode == "ganttplotter":
+            from GanttPlotter import GanttJob, GanttPlotter
+
+            resources_list = [f"Machine {unit}" for unit in range(self.machines)]
+            gantt_operation_list = []
+            for job in range(self.jobs):
+                machine_no = 0
+                while machine_no < self.machines and self.solution[job][machine_no] != -1:
+                    job_name = f"Job {job}"
+                    start = self.solution[job][machine_no]
+                    duration = self.instance_matrix[job][machine_no][1]
+                    resource = f"Machine {self.instance_matrix[job][machine_no][0]}"
+                    gantt_operation = GanttJob(start, duration, resource, job_name)
+                    gantt_operation_list.append(gantt_operation)
+                    machine_no += 1
+            my_plotter = GanttPlotter(resources=resources_list, jobs=gantt_operation_list)
+            my_plotter.generate_gantt("Title")
+            my_plotter.show_gantt()
