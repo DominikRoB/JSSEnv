@@ -1,5 +1,6 @@
 import bisect
 import datetime
+import os
 import random
 
 import pandas as pd
@@ -33,6 +34,7 @@ class JssEnv(gym.Env):
                 "allow_illegal_actions": True
             }
         instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta80")
+        self.instance_name = os.path.basename(instance_path)
         self._allow_illegal_actions = env_config.get("allow_illegal_actions", True)
 
         # initial values for variables used for instance
@@ -533,5 +535,10 @@ class JssEnv(gym.Env):
                     gantt_operation_list.append(gantt_operation)
                     machine_no += 1
             my_plotter = GanttPlotter(resources=resources_list, jobs=gantt_operation_list)
-            my_plotter.generate_gantt("Title")
+
+            description = f" Machines: {self.machines} \n Jobs: {self.jobs} \n \n Method: RL"
+            title = f"{self.instance_name} - Makespan: {self.current_time_step}"
+            my_plotter.generate_gantt(title, description=description)
+
             my_plotter.show_gantt()
+            return
