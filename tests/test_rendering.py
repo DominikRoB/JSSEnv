@@ -4,6 +4,24 @@ import imageio
 
 
 class TestRendering(unittest.TestCase):
+
+    def test_ganttplotter(self):
+        env = gym.make(
+            "JSSEnv:JSSEnv-v1",
+            env_config={"instance_path": "../JSSEnv/envs/instances/ta01"},
+        )
+        seed = 42
+        env.seed(seed)
+        _ = env.reset()
+
+        while True:
+            action = env.action_space.sample()
+            obs, reward, done, _ = env.step(action)
+            env.render(mode="ganttplotter")
+            if done:
+                print("Episode ended")
+                break
+
     def test_optimum_ta01_gif(self):
         # http://optimizizer.com/solution.php?name=ta01&UB=1231&problemclass=ta
         env = gym.make(
