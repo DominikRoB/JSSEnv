@@ -11,6 +11,8 @@ class TestSolution(unittest.TestCase):
         )
         env.reset()
         self.assertEqual(env.current_time_step, 0)
+        total_reward = 0
+        reward_list = []
         # for every machine give the jobs to process in order for every machine
         solution_sequence = [
             [7, 11, 9, 10, 8, 3, 12, 2, 14, 5, 1, 6, 4, 0, 13],
@@ -55,6 +57,8 @@ class TestSolution(unittest.TestCase):
                             sum(env.legal_actions[:-1]), env.nb_legal_actions
                         )
                         state, reward, done, _ = env.step(action_to_do)
+                        total_reward += reward
+                        reward_list.append(reward)
                         index_machine[machine] += 1
                         step_nb += 1
             if no_op and not done:
