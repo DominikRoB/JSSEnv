@@ -67,44 +67,13 @@ class JssEnv(gym.Env):
         # initial values for variables used for representation
         self.start_timestamp = datetime.datetime.now().timestamp()
         self.sum_op = 0
-        instance_file = open(instance_path, "r")
-        line_str = instance_file.readline()
-        line_cnt = 1
-        while line_str:
-            split_data = line_str.split()
-            if line_cnt == 1:
-                self.jobs, self.machines = int(split_data[0]), int(split_data[1])
-                # matrix which store tuple of (machine, length of the job)
-                self.instance_matrix = np.zeros(
-                    (self.jobs, self.machines), dtype=(np.int, 2)
-                )
-                # contains all the time to complete jobs
-                self.jobs_length = np.zeros(self.jobs, dtype=np.int)
-            else:
-                # couple (machine, time)
-                assert len(split_data) % 2 == 0
-                # each jobs must pass a number of operation equal to the number of machines
-                assert len(split_data) / 2 == self.machines
-                i = 0
-                # we get the actual jobs
-                job_nb = line_cnt - 2
-                while i < len(split_data):
-                    machine, time = int(split_data[i]), int(split_data[i + 1])
-                    self.instance_matrix[job_nb][i // 2] = (machine, time)
-                    self.max_time_op = max(self.max_time_op, time)
-                    self.jobs_length[job_nb] += time
-                    self.sum_op += time
-                    i += 2
-            line_str = instance_file.readline()
-            line_cnt += 1
-        instance_file.close()
+
+        with open(instance_path, "r") as instance_file:
+            self._read_instance(instance_file)
+
         self.max_time_jobs = max(self.jobs_length)
         # check the parsed data are correct
-        assert self.max_time_op > 0
-        assert self.max_time_jobs > 0
-        assert self.jobs > 0
-        assert self.machines > 1, "We need at least 2 machines"
-        assert self.instance_matrix is not None
+        self._assert_parsed_data()
         # allocate a job + one to wait
         self.action_space = gym.spaces.Discrete(self.jobs)
         # used for plotting
@@ -125,12 +94,51 @@ class JssEnv(gym.Env):
             {
                 "action_mask": gym.spaces.Box(0, 1, shape=(self.jobs + 1,)),
                 "real_obs": gym.spaces.Box(
-                    low=0.0, high=1.0, shape=(self.jobs, 7), dtype=np.float
+                    low=0.0, high=1.0, shape=(self.jobs, 7), dtype=float
                 ),
             }
         )
 
-    def seed(self, seed) -> list[int]:
+    def _read_instance(self, instance_file):
+        line_str = instance_file.readline()
+        line_cnt = 1
+        while line_str:
+            split_data = line_str.split()
+            if line_cnt == 1:
+                self.jobs, self.machines = int(split_data[0]), int(split_data[1])
+                # matrix which store tuple of (machine, length of the job)
+                self.instance_matrix = np.zeros(
+                    (self.jobs, self.machines), dtype=(int, 2)
+                )
+                # contains all the time to complete jobs
+                self.jobs_length = np.zeros(self.jobs, dtype=int)
+            else:
+                # couple (machine, time)
+                assert len(split_data) % 2 == 0
+                # each jobs must pass a number of operation equal to the number of machines
+                assert len(split_data) / 2 == self.machines
+                i = 0
+                # we get the actual jobs
+                job_nb = line_cnt - 2
+                while i < len(split_data):
+                    machine, time = int(split_data[i]), int(split_data[i + 1])
+                    self.instance_matrix[job_nb][i // 2] = (machine, time)
+                    self.max_time_op = max(self.max_time_op, time)
+                    self.jobs_length[job_nb] += time
+                    self.sum_op += time
+                    i += 2
+            line_str = instance_file.readline()
+            line_cnt += 1
+
+    def _assert_parsed_data(self):
+        """ Check the parsed data are valid"""
+        assert self.max_time_op > 0
+        assert self.max_time_jobs > 0
+        assert self.jobs > 0
+        assert self.machines > 1, "We need at least 2 machines"
+        assert self.instance_matrix is not None
+
+    def seed(self, seed):
         if seed:
             random.seed(seed)
             np.random.seed(seed)
@@ -156,27 +164,27 @@ class JssEnv(gym.Env):
         self.nb_legal_actions = self.jobs
         self.nb_machine_legal = 0
         # represent all the legal actions
-        self.legal_actions = np.ones(self.jobs + 1, dtype=np.bool)
+        self.legal_actions = np.ones(self.jobs + 1, dtype=bool)
         self.legal_actions[self.jobs] = False
         # used to represent the solution
-        self.solution = np.full((self.jobs, self.machines), -1, dtype=np.int)
-        self.time_until_available_machine = np.zeros(self.machines, dtype=np.int)
-        self.time_until_finish_current_op_jobs = np.zeros(self.jobs, dtype=np.int)
-        self.todo_time_step_job = np.zeros(self.jobs, dtype=np.int)
-        self.total_perform_op_time_jobs = np.zeros(self.jobs, dtype=np.int)
-        self.needed_machine_jobs = np.zeros(self.jobs, dtype=np.int)
-        self.total_idle_time_jobs = np.zeros(self.jobs, dtype=np.int)
-        self.idle_time_jobs_last_op = np.zeros(self.jobs, dtype=np.int)
-        self.illegal_actions = np.zeros((self.machines, self.jobs), dtype=np.bool)
-        self.action_illegal_no_op = np.zeros(self.jobs, dtype=np.bool)
-        self.machine_legal = np.zeros(self.machines, dtype=np.bool)
+        self.solution = np.full((self.jobs, self.machines), -1, dtype=int)
+        self.time_until_available_machine = np.zeros(self.machines, dtype=int)
+        self.time_until_finish_current_op_jobs = np.zeros(self.jobs, dtype=int)
+        self.todo_time_step_job = np.zeros(self.jobs, dtype=int)
+        self.total_perform_op_time_jobs = np.zeros(self.jobs, dtype=int)
+        self.needed_machine_jobs = np.zeros(self.jobs, dtype=int)
+        self.total_idle_time_jobs = np.zeros(self.jobs, dtype=int)
+        self.idle_time_jobs_last_op = np.zeros(self.jobs, dtype=int)
+        self.illegal_actions = np.zeros((self.machines, self.jobs), dtype=bool)
+        self.action_illegal_no_op = np.zeros(self.jobs, dtype=bool)
+        self.machine_legal = np.zeros(self.machines, dtype=bool)
         for job in range(self.jobs):
             needed_machine = self.instance_matrix[job][0][0]
             self.needed_machine_jobs[job] = needed_machine
             if not self.machine_legal[needed_machine]:
                 self.machine_legal[needed_machine] = True
                 self.nb_machine_legal += 1
-        self.state = np.zeros((self.jobs, 7), dtype=np.float)
+        self.state = np.zeros((self.jobs, 7), dtype=float)
         return self._get_current_state_representation()
 
     def _prioritization_non_final(self):
@@ -256,7 +264,7 @@ class JssEnv(gym.Env):
                 if self.legal_actions[job]:
                     time_step = self.todo_time_step_job[job]
                     machine_needed = self.instance_matrix[job][time_step][0]
-                    time_needed = self.instance_matrix[job][time_step][1]
+                    time_needed = self.get_time_needed(job, time_step)
                     end_job = self.current_time_step + time_needed
                     if end_job < next_time_step:
                         return
@@ -354,25 +362,26 @@ class JssEnv(gym.Env):
                 self.action_illegal_no_op[job] = True
         while self.nb_machine_legal == 0 and len(self.next_time_step) > 0:
             reward -= self._increase_time_step()
-        scaled_reward = self._reward_scaler(reward)
         self._prioritization_non_final()
         self._check_no_op()
+        scaled_reward = self._reward_scaler(reward)
         return scaled_reward
 
     def _handle_job_action(self, action):
         reward = 0.0
         current_time_step_job = self.todo_time_step_job[action]
         machine_needed = self.needed_machine_jobs[action]
-        time_needed = self.instance_matrix[action][current_time_step_job][1]
+
+        time_needed = self.get_time_needed(action, current_time_step_job)
+
         reward += time_needed
         self.time_until_available_machine[machine_needed] = time_needed
         self.time_until_finish_current_op_jobs[action] = time_needed
         self.state[action][1] = time_needed / self.max_time_op
+
         to_add_time_step = self.current_time_step + time_needed
-        if to_add_time_step not in self.next_time_step:
-            index = bisect.bisect_left(self.next_time_step, to_add_time_step)
-            self.next_time_step.insert(index, to_add_time_step)
-            self.next_jobs.insert(index, action)
+        self._add_decision_point(to_add_time_step, action)
+
         self.solution[action][current_time_step_job] = self.current_time_step
         for job in range(self.jobs):
             if (
@@ -392,7 +401,6 @@ class JssEnv(gym.Env):
             reward -= self._increase_time_step()
         self._prioritization_non_final()
         self._check_no_op()
-        # we then need to scale the reward
         scaled_reward = self._reward_scaler(reward)
         return scaled_reward
 
@@ -404,8 +412,8 @@ class JssEnv(gym.Env):
 
     def _increase_time_step(self):
         """
-        The heart of the logic his here, we need to increase every counter when we have a nope action called
-        and return the time elapsed
+        The heart of the logic is here, we need to increase every counter when we have a nope action called or
+        when there are no more legal actions possible
         :return: time elapsed
         """
         hole_planning = 0
@@ -416,13 +424,13 @@ class JssEnv(gym.Env):
         for job in range(self.jobs):
             was_left_time = self.time_until_finish_current_op_jobs[job]
             if was_left_time > 0:
-                performed_op_job = min(difference, was_left_time)
                 self.time_until_finish_current_op_jobs[job] = max(
                     0, self.time_until_finish_current_op_jobs[job] - difference
                 )
                 self.state[job][1] = (
                         self.time_until_finish_current_op_jobs[job] / self.max_time_op
                 )
+                performed_op_job = min(difference, was_left_time)
                 self.total_perform_op_time_jobs[job] += performed_op_job
                 self.state[job][3] = (
                         self.total_perform_op_time_jobs[job] / self.max_time_jobs
@@ -438,16 +446,10 @@ class JssEnv(gym.Env):
                         self.needed_machine_jobs[job] = self.instance_matrix[job][
                             self.todo_time_step_job[job]
                         ][0]
-                        self.state[job][4] = (
-                                max(
-                                    0,
-                                    self.time_until_available_machine[
-                                        self.needed_machine_jobs[job]
-                                    ]
-                                    - difference,
-                                )
-                                / self.max_time_op
-                        )
+
+                        time_until_available = self.time_until_available_machine[self.needed_machine_jobs[job]]
+                        time_until_available_on_next_step = time_until_available - difference
+                        self.state[job][4] = (max(0, time_until_available_on_next_step) / self.max_time_op)
                     else:
                         self.needed_machine_jobs[job] = -1
                         # this allow to have 1 is job is over (not 0 because, 0 strongly indicate that the job is a
@@ -542,3 +544,20 @@ class JssEnv(gym.Env):
 
             my_plotter.show_gantt()
             return
+
+    def _add_decision_point(self, to_add_time_step, action):
+        if to_add_time_step not in self.next_time_step:
+            index = bisect.bisect_left(self.next_time_step, to_add_time_step)
+            self.next_time_step.insert(index, to_add_time_step)
+            self.next_jobs.insert(index, action)
+
+    def get_time_needed(self, job, operation):
+        time_needed = self.instance_matrix[job][operation][1]
+        return time_needed
+
+
+if __name__ == '__main__':
+    from stable_baselines3.common.env_checker import check_env
+
+    base_env = JssEnv()
+    check_env(base_env)
