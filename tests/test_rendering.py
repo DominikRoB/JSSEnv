@@ -77,7 +77,7 @@ class TestRendering(unittest.TestCase):
                         state, reward, done, _ = env.step(action_to_do)
                         index_machine[machine] += 1
                         step_nb += 1
-                        temp_image = env.render().to_image()
+                        temp_image = env.render("plotly").to_image()
                         images.append(imageio.imread(temp_image))
             if no_op and not done:
                 self.assertTrue(len(env.next_time_step) > 0, "step {}".format(step_nb))
