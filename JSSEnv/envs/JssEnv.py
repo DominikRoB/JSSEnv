@@ -27,16 +27,19 @@ class JssEnv(gym.Env):
         -
         :param env_config: Ray dictionary of config parameter
         """
-        if env_config is None:
-            env_config = {
-                "instance_path": str(Path(__file__).parent.absolute())
-                                 + "/instances/ta80",
-                "allow_illegal_actions": True
-            }
-        instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta80")
-        self.instance_name = os.path.basename(instance_path)
-        self._allow_illegal_actions = env_config.get("allow_illegal_actions", True)
 
+        # Configuration
+
+        if env_config is None:
+            env_config = {}
+
+        instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta15")
+        allow_illegal_actions = env_config.get("allow_illegal_actions", True)
+        stochastic_process_times = env_config.get("stochastic_process_times", False)
+
+        self._allow_illegal_actions = allow_illegal_actions
+        self._stochastic_process_times = stochastic_process_times
+        self.instance_name = os.path.basename(instance_path)
         # initial values for variables used for instance
         self.jobs = 0
         self.machines = 0
@@ -72,6 +75,13 @@ class JssEnv(gym.Env):
             self._read_instance(instance_file)
 
         self.max_time_jobs = max(self.jobs_length)
+
+        # Used to track instance matrix, when stochastics are used
+        if self._stochastic_process_times:
+            self.real_instance_matrix = np.copy(self.instance_matrix)
+            self.max_time_op = self.max_time_op * 2  # HACK Accounting for stochastic variance
+            self.max_time_jobs = self.max_time_jobs * 2  # HACK Accounting for stochastic variance
+
         # check the parsed data are correct
         self._assert_parsed_data()
         # allocate a job + one to wait
@@ -378,6 +388,7 @@ class JssEnv(gym.Env):
         self.time_until_available_machine[machine_needed] = time_needed
         self.time_until_finish_current_op_jobs[action] = time_needed
         self.state[action][1] = time_needed / self.max_time_op
+        assert self.state[action][1] <= 1 and self.state[action][1] >= 0
 
         to_add_time_step = self.current_time_step + time_needed
         self._add_decision_point(to_add_time_step, action)
@@ -410,6 +421,149 @@ class JssEnv(gym.Env):
     def increase_time_step(self):
         self._increase_time_step()
 
+    def increase_time_by(self, time_units):
+        self._increase_time_by(time_units)
+
+    def _increase_time_by(self, time_units):
+        """
+        Increase time by a given number of time units
+        :param time:
+        :return:
+        """
+
+        resulting_time = self.current_time_step + time_units
+
+        self.current_time_step = resulting_time
+
+        # Handle jobs
+        for job in range(self.jobs):
+            was_left_time = self.time_until_finish_current_op_jobs[job]
+            if was_left_time > 0:
+                self._update_time_until_op_finish(job, time_units)
+                self._update_state1(job)
+
+                performed_op_job = min(time_units, was_left_time)
+                self.total_perform_op_time_jobs[job] += performed_op_job
+
+                self._update_state3(job)
+
+                if self.time_until_finish_current_op_jobs[job] == 0:
+                    self._handle_completed_op_of(job, time_units, was_left_time)
+            elif not self.job_is_completed(job):  # For Ops that finished in a previous foreward movement of time
+                self.total_idle_time_jobs[job] += time_units
+                self._update_state6(job)
+
+                self.idle_time_jobs_last_op[job] += time_units
+                self._update_state5(job)
+
+        # Handle machines
+        hole_planning = 0
+        for machine in range(self.machines):
+            time_until_machine_available = self.time_until_available_machine[machine]
+            machine_became_available = (time_until_machine_available < time_units)
+            if machine_became_available:
+                empty = time_units - time_until_machine_available
+                hole_planning += empty
+            self._update_time_until_machine_available(machine, time_units)
+
+            if self.machine_is_available(machine):
+                # Update legality of jobs for machine
+                for job in range(self.jobs):
+                    self.make_jobs_legal_for_available_machine(job, machine)
+        return hole_planning
+
+    def _handle_completed_op_of(self, job, passed_time, previous_remaining_time):
+        self.total_idle_time_jobs[job] += passed_time - previous_remaining_time
+        self._update_state6(job)
+
+        self.idle_time_jobs_last_op[job] = passed_time - previous_remaining_time
+        self._update_state5(job)
+
+        self.todo_time_step_job[job] += 1
+        self._update_state2(job)
+
+        if self.job_is_completed(job):
+            self.needed_machine_jobs[job] = -1
+            self._update_state4(job, passed_time, is_completed=True)
+            self.make_job_illegal(job)
+        else:  # job is not completed
+            self.update_needed_machine_for(job)
+            self._update_state4(job, passed_time, is_completed=False)
+
+    def update_needed_machine_for(self, job):
+        next_operation = self.todo_time_step_job[job]
+        needed_machine = self.instance_matrix[job][next_operation][0]
+        self.needed_machine_jobs[job] = needed_machine
+
+    def make_job_illegal(self, job):
+        if self.legal_actions[job]:
+            self.legal_actions[job] = False
+            self.nb_legal_actions -= 1
+
+    def make_jobs_legal_for_available_machine(self, job, machine):
+        machine_needed_next = self.needed_machine_jobs[job] == machine  # Machine is needed for next op of job
+        if (
+                machine_needed_next
+                and not self.legal_actions[job]  # Job is not already legal
+                and not self.illegal_actions[machine][job]  # Job is not illegal on machine (Unclear atm)
+        ):
+            self.legal_actions[job] = True
+            self.nb_legal_actions += 1
+            if not self.machine_legal[machine]:
+                self.machine_legal[machine] = True
+                self.nb_machine_legal += 1
+
+    def job_is_completed(self, job):
+        """ Checks if all ops for job are completed """
+        return self.todo_time_step_job[job] >= self.machines
+
+    def machine_is_available(self, machine):
+        return self.time_until_available_machine[machine] == 0
+
+    def _update_time_until_op_finish(self, job, passed_time):
+        """
+        Updates how long the current op of a job still has to run after time passes
+        :param job:
+        :param passed_time:
+        :return:
+        """
+        remaining_time_prior = self.time_until_finish_current_op_jobs[job]
+        remaining_time_after = remaining_time_prior - passed_time
+        self.time_until_finish_current_op_jobs[job] = max(0, remaining_time_after)
+
+    def _update_state1(self, job):
+        self.state[job][1] = (
+                self.time_until_finish_current_op_jobs[job] / self.max_time_op
+        )
+        assert 1 >= self.state[job][1] >= 0
+
+    def _update_state2(self, job):
+        self.state[job][2] = self.todo_time_step_job[job] / self.machines
+        assert 1 >= self.state[job][2] >= 0
+
+    def _update_state3(self, job):
+        self.state[job][3] = (
+                self.total_perform_op_time_jobs[job] / self.max_time_jobs
+        )
+        assert 1 >= self.state[job][3] >= 0
+
+    def _update_state4(self, job, passed_time, is_completed: bool):
+        if is_completed:
+            self.state[job][4] = 1.0
+        else:
+            time_until_available = self.time_until_available_machine[self.needed_machine_jobs[job]]
+            time_until_available_on_next_step = time_until_available - passed_time
+            self.state[job][4] = (max(0, time_until_available_on_next_step) / self.max_time_op)
+            assert 1 >= self.state[job][4] >= 0
+
+    def _update_state5(self, job):
+        self.state[job][5] = self.idle_time_jobs_last_op[job] / self.sum_op
+        assert 1 >= self.state[job][5] >= 0
+
+    def _update_state6(self, job):
+        self.state[job][6] = self.total_idle_time_jobs[job] / self.sum_op
+        assert 1 >= self.state[job][6] >= 0
+
     def _increase_time_step(self):
         """
         The heart of the logic is here, we need to increase every counter when we have a nope action called or
@@ -420,6 +574,7 @@ class JssEnv(gym.Env):
         next_time_step_to_pick = self.next_time_step.pop(0)
         self.next_jobs.pop(0)
         difference = next_time_step_to_pick - self.current_time_step
+        # hole_planning = self._increase_time_by(difference)
         self.current_time_step = next_time_step_to_pick
         for job in range(self.jobs):
             was_left_time = self.time_until_finish_current_op_jobs[job]
@@ -430,18 +585,25 @@ class JssEnv(gym.Env):
                 self.state[job][1] = (
                         self.time_until_finish_current_op_jobs[job] / self.max_time_op
                 )
+                assert self.state[job][1] <= 1 and self.state[job][1] >= 0
+
                 performed_op_job = min(difference, was_left_time)
                 self.total_perform_op_time_jobs[job] += performed_op_job
                 self.state[job][3] = (
                         self.total_perform_op_time_jobs[job] / self.max_time_jobs
                 )
+                assert self.state[job][3] <= 1 and self.state[job][3] >= 0
+
                 if self.time_until_finish_current_op_jobs[job] == 0:
                     self.total_idle_time_jobs[job] += difference - was_left_time
                     self.state[job][6] = self.total_idle_time_jobs[job] / self.sum_op
+                    assert self.state[job][6] <= 1 and self.state[job][6] >= 0
                     self.idle_time_jobs_last_op[job] = difference - was_left_time
                     self.state[job][5] = self.idle_time_jobs_last_op[job] / self.sum_op
+                    assert self.state[job][5] <= 1 and self.state[job][5] >= 0
                     self.todo_time_step_job[job] += 1
                     self.state[job][2] = self.todo_time_step_job[job] / self.machines
+                    assert self.state[job][2] <= 1 and self.state[job][2] >= 0
                     if self.todo_time_step_job[job] < self.machines:
                         self.needed_machine_jobs[job] = self.instance_matrix[job][
                             self.todo_time_step_job[job]
@@ -450,6 +612,7 @@ class JssEnv(gym.Env):
                         time_until_available = self.time_until_available_machine[self.needed_machine_jobs[job]]
                         time_until_available_on_next_step = time_until_available - difference
                         self.state[job][4] = (max(0, time_until_available_on_next_step) / self.max_time_op)
+                        assert self.state[job][4] <= 1 and self.state[job][4] >= 0
                     else:
                         self.needed_machine_jobs[job] = -1
                         # this allow to have 1 is job is over (not 0 because, 0 strongly indicate that the job is a
@@ -462,7 +625,10 @@ class JssEnv(gym.Env):
                 self.total_idle_time_jobs[job] += difference
                 self.idle_time_jobs_last_op[job] += difference
                 self.state[job][5] = self.idle_time_jobs_last_op[job] / self.sum_op
+                assert self.state[job][5] <= 1 and self.state[job][5] >= 0
                 self.state[job][6] = self.total_idle_time_jobs[job] / self.sum_op
+                assert self.state[job][6] <= 1 and self.state[job][6] >= 0
+
         for machine in range(self.machines):
             if self.time_until_available_machine[machine] < difference:
                 empty = difference - self.time_until_available_machine[machine]
@@ -552,12 +718,57 @@ class JssEnv(gym.Env):
             self.next_jobs.insert(index, action)
 
     def get_time_needed(self, job, operation):
-        time_needed = self.instance_matrix[job][operation][1]
+        nominal_duration = self.instance_matrix[job][operation][1]
+        if not self._stochastic_process_times:
+            time_needed = nominal_duration
+        else:
+            # Calculating and sampling from binomial distribution
+            desired_stan_dev = 0.15
+            relative_stan_dev = np.min((0.15, 0.75 * self._get_min_acceptable_relative_std_for(nominal_duration)))
+            stan_dev = relative_stan_dev * nominal_duration
+
+            success_probability = 1 - np.square(stan_dev) / nominal_duration
+            number_trials = nominal_duration / success_probability
+
+            time_needed = np.random.binomial(n=number_trials,
+                                             p=success_probability)
+
+            self.real_instance_matrix[job][operation][1] = time_needed
+
         return time_needed
+
+    def _get_min_acceptable_relative_std(self):
+        max_nominal_time = self.max_time_op
+        min_possible_rel_std = np.sqrt(1 / max_nominal_time)
+        return min_possible_rel_std
+
+    def _get_min_acceptable_relative_std_for(self, mean_value):
+        return np.sqrt(1 / mean_value)
+
+    def _get_default_config(self):
+        env_config = {
+            "instance_path": str(Path(__file__).parent.absolute())
+                             + "/instances/ta15",
+            "allow_illegal_actions": True,
+            "stochastic_process_times": True
+        }
+        return env_config
+
+    def _update_time_until_machine_available(self, machine, time_passed):
+        time_until_available_prior = self.time_until_available_machine[machine]
+        remaining_time = time_until_available_prior - time_passed
+        self.time_until_available_machine[machine] = max(0, remaining_time)
 
 
 if __name__ == '__main__':
     from stable_baselines3.common.env_checker import check_env
 
-    base_env = JssEnv()
+    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\ta15"
+    env_config = {
+        "instance_path": instance,
+        "allow_illegal_actions": True,
+        "stochastic_process_times": True
+    }
+
+    base_env = JssEnv(env_config)
     check_env(base_env)
