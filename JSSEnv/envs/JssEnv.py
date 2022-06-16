@@ -604,7 +604,7 @@ class JssEnv(gym.Env):
                     self.todo_time_step_job[job] += 1
                     self.state[job][2] = self.todo_time_step_job[job] / self.machines
                     assert self.state[job][2] <= 1 and self.state[job][2] >= 0
-                    if self.todo_time_step_job[job] < self.machines:
+                    if not self.job_is_completed(job):
                         self.needed_machine_jobs[job] = self.instance_matrix[job][
                             self.todo_time_step_job[job]
                         ][0]
@@ -621,7 +621,7 @@ class JssEnv(gym.Env):
                         if self.legal_actions[job]:
                             self.legal_actions[job] = False
                             self.nb_legal_actions -= 1
-            elif self.todo_time_step_job[job] < self.machines:
+            elif not self.job_is_completed(job):
                 self.total_idle_time_jobs[job] += difference
                 self.idle_time_jobs_last_op[job] += difference
                 self.state[job][5] = self.idle_time_jobs_last_op[job] / self.sum_op
