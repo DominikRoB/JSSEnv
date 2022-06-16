@@ -693,15 +693,22 @@ class JssEnv(gym.Env):
             resources_list = [f"Machine {unit}" for unit in range(self.machines)]
             gantt_operation_list = []
             for job in range(self.jobs):
-                machine_no = 0
-                while machine_no < self.machines and self.solution[job][machine_no] != -1:
+                operation_no = 0
+                while operation_no < self.machines and self.solution[job][operation_no] != -1:
                     job_name = f"Job {job}"
-                    start = self.solution[job][machine_no]
-                    duration = self.instance_matrix[job][machine_no][1]
-                    resource = f"Machine {self.instance_matrix[job][machine_no][0]}"
+                    start = self.solution[job][operation_no]
+                    if self._stochastic_process_times:
+                        duration = self.real_instance_matrix[job][operation_no][1]
+                    else:
+                        duration = self.instance_matrix[job][operation_no][1]
+
+                    if start + duration > self.current_time_step:  # DOC Only show progess as far as time actually moved
+                        duration = self.current_time_step - start
+
+                    resource = f"Machine {self.instance_matrix[job][operation_no][0]}"
                     gantt_operation = GanttJob(start, duration, resource, job_name)
                     gantt_operation_list.append(gantt_operation)
-                    machine_no += 1
+                    operation_no += 1
             my_plotter = GanttPlotter(resources=resources_list, jobs=gantt_operation_list)
 
             description = f" Machines: {self.machines} \n Jobs: {self.jobs} \n \n Method: RL"
