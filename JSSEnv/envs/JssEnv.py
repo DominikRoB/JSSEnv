@@ -344,10 +344,21 @@ class JssEnv(gym.Env):
             scaled_reward = self._handle_nope_action()
         else:
             scaled_reward = self._handle_job_action(action)
+
+        is_done = self._is_done()
+        if is_done:
+            reward_makespan = self.get_makespan()
+        else:
+            reward_makespan = 0
+
+        reward_dict = dict()
+        reward_dict["Scaled Reward"] = scaled_reward
+        reward_dict["Makespan Reward"] = reward_makespan
+
         return (
             self._get_current_state_representation(),
-            scaled_reward,
-            self._is_done(),
+            reward_dict,
+            is_done,
             {},
         )
 
@@ -656,23 +667,33 @@ class JssEnv(gym.Env):
             return True
         return False
 
+    def create_schedule(self):
+        df = []
+        for job in range(self.jobs):
+            machine_no = 0
+            while machine_no < self.machines and self.solution[job][machine_no] != -1:
+                dict_op = dict()
+                dict_op["Task"] = "Job {}".format(job)
+                start_sec = self.start_timestamp + self.solution[job][machine_no]
+                finish_sec = start_sec + self.instance_matrix[job][machine_no][1]
+                dict_op["Start"] = datetime.datetime.fromtimestamp(start_sec)
+                dict_op["Finish"] = datetime.datetime.fromtimestamp(finish_sec)
+                dict_op["Resource"] = "Machine {}".format(
+                    self.instance_matrix[job][machine_no][0]
+                )
+                df.append(dict_op)
+                machine_no += 1
+        return df
+
+    def get_makespan(self):
+        schedule = self.create_schedule()
+        test = pd.DataFrame.from_dict(schedule)
+        calc_makespan = (test["Finish"].max() - test["Start"].min()).total_seconds()
+        return calc_makespan
+
     def render(self, mode="plotly"):
         if mode == "plotly":
-            df = []
-            for job in range(self.jobs):
-                machine_no = 0
-                while machine_no < self.machines and self.solution[job][machine_no] != -1:
-                    dict_op = dict()
-                    dict_op["Task"] = "Job {}".format(job)
-                    start_sec = self.start_timestamp + self.solution[job][machine_no]
-                    finish_sec = start_sec + self.instance_matrix[job][machine_no][1]
-                    dict_op["Start"] = datetime.datetime.fromtimestamp(start_sec)
-                    dict_op["Finish"] = datetime.datetime.fromtimestamp(finish_sec)
-                    dict_op["Resource"] = "Machine {}".format(
-                        self.instance_matrix[job][machine_no][0]
-                    )
-                    df.append(dict_op)
-                    machine_no += 1
+            df = self.create_schedule()
             fig = None
             if len(df) > 0:
                 df = pd.DataFrame(df)
@@ -770,7 +791,7 @@ class JssEnv(gym.Env):
 if __name__ == '__main__':
     from stable_baselines3.common.env_checker import check_env
 
-    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\ta15"
+    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\ta62"
     env_config = {
         "instance_path": instance,
         "allow_illegal_actions": True,
@@ -778,4 +799,35 @@ if __name__ == '__main__':
     }
 
     base_env = JssEnv(env_config)
-    check_env(base_env)
+    # check_env(base_env)
+
+    number_actions = base_env.action_space.n + 1
+    action_array = np.array(range(number_actions))
+
+    num_episodes = 10
+    for _ in range(num_episodes):
+        state = base_env.reset()
+
+        done = False
+        legal_action_mask = state["action_mask"]
+        legal_actions = action_array[legal_action_mask]
+
+        return1 = 0
+        return2 = 0
+        while not done:
+            action = random.choice(legal_actions)
+            state, reward, done, info = base_env.step(action)
+
+            #print("1: ", reward["Scaled Reward"])
+            return1 = return1 + reward["Scaled Reward"]
+            #print("2: ", reward["Makespan Reward"])
+            return2 = return2 + reward["Makespan Reward"]
+
+            legal_action_mask = state["action_mask"]
+            legal_actions = action_array[legal_action_mask]
+
+        print("return1", return1)
+        print("return2", return2)
+        print()
+        #fig = base_env.render(mode="plotly")
+        #fig.show()
