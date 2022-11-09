@@ -162,6 +162,7 @@ class JssEnv(gym.Env):
         return {
             "real_obs": self.state,
             "action_mask": self.legal_actions,
+            "schedule": self.create_schedule()
         }
 
     def get_legal_actions(self):
