@@ -792,7 +792,7 @@ class JssEnv(gym.Env):
 if __name__ == '__main__':
     from stable_baselines3.common.env_checker import check_env
 
-    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\ta62"
+    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\flowshop.dir\ta120"
     env_config = {
         "instance_path": instance,
         "allow_illegal_actions": True,
@@ -805,7 +805,7 @@ if __name__ == '__main__':
     number_actions = base_env.action_space.n + 1
     action_array = np.array(range(number_actions))
 
-    num_episodes = 10
+    num_episodes = 1
     for _ in range(num_episodes):
         state = base_env.reset()
 
@@ -830,5 +830,5 @@ if __name__ == '__main__':
         print("return1", return1)
         print("return2", return2)
         print()
-        #fig = base_env.render(mode="plotly")
-        #fig.show()
+        fig = base_env.render(mode="ganttplotter")
+        fig.show()
