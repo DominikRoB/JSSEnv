@@ -10,9 +10,13 @@ import numpy as np
 import plotly.figure_factory as ff
 from pathlib import Path
 
+from matplotlib import pyplot as plt
+
 
 class JssEnv(gym.Env):
-    def __init__(self, env_config=None):
+    metadata = {"render_modes": ["rgb_array", "human-ganttplotter", "human-plotly"]}
+
+    def __init__(self, render_mode=None, env_config=None):
         """
         This environment model the job shop scheduling problem as a single agent problem:
 
@@ -37,7 +41,6 @@ class JssEnv(gym.Env):
         instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta15")
         allow_illegal_actions = env_config.get("allow_illegal_actions", True)
         stochastic_process_times = env_config.get("stochastic_process_times", False)
-        render_mode = env_config.get("render_mode", None)
 
         self.render_mode = render_mode
         self._allow_illegal_actions = allow_illegal_actions
@@ -88,7 +91,7 @@ class JssEnv(gym.Env):
         # check the parsed data are correct
         self._assert_parsed_data()
         # allocate a job + one to wait
-        self.action_space = gym.spaces.Discrete(self.jobs + 1 )
+        self.action_space = gym.spaces.Discrete(self.jobs + 1)
         # used for plotting
         self.colors = [
             tuple([random.random() for _ in range(3)]) for _ in range(self.machines)
@@ -165,7 +168,7 @@ class JssEnv(gym.Env):
         return {
             "real_obs": self.state,
             "action_mask": self.legal_actions,
-            "schedule": self.create_schedule()
+            # "schedule": self.create_schedule()
         }
 
     def get_legal_actions(self):
@@ -758,7 +761,6 @@ class JssEnv(gym.Env):
             title = f"{self.instance_name} - Makespan: {self.current_time_step}"
             fig = my_plotter.generate_gantt(title, description=description)
 
-
             # TODO Properly Separate modes into human and rgb-array
             fig.canvas.draw()
             image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
@@ -766,6 +768,8 @@ class JssEnv(gym.Env):
 
             if self.render_mode == "human-ganttplotter":
                 my_plotter.show_gantt()
+
+            plt.close(fig)
             return image_from_plot
 
     def _add_decision_point(self, to_add_time_step, action):
@@ -822,10 +826,10 @@ class JssEnv(gym.Env):
          """
         min_processing_time = math.inf
         shortest_jobs = []
-        legal_actions = [ii for ii in range(0,len(self.legal_actions)) if self.legal_actions[ii]]
+        legal_actions = [ii for ii in range(0, len(self.legal_actions)) if self.legal_actions[ii]]
         for action in legal_actions:
-            if action == self.action_space.n-1:
-                continue # Skip NoOp
+            if action == self.action_space.n - 1:
+                continue  # Skip NoOp
             operation = self.todo_time_step_job[action]
             time_needed = self.get_time_needed(action, operation)
             if time_needed < min_processing_time:
@@ -843,10 +847,10 @@ class JssEnv(gym.Env):
          """
         min_processing_time = math.inf
         shortest_jobs = []
-        legal_actions = [ii for ii in range(0,len(self.legal_actions)) if self.legal_actions[ii]]
+        legal_actions = [ii for ii in range(0, len(self.legal_actions)) if self.legal_actions[ii]]
         for action in legal_actions:
-            if action == self.action_space.n-1:
-                continue # Skip NoOp
+            if action == self.action_space.n - 1:
+                continue  # Skip NoOp
 
             time_needed = self.instance_matrix[action].sum(axis=0)[1]
             if time_needed < min_processing_time:
@@ -860,6 +864,15 @@ class JssEnv(gym.Env):
 
 
 if __name__ == '__main__':
+
+    from gym.envs.registration import register
+
+    register(
+        id="JSSEnv-v1",
+        entry_point="JSSEnv.envs:JssEnv",
+        kwargs={'env_config': None}
+    )
+
     from stable_baselines3.common.env_checker import check_env
 
     instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\jobshop.dir\ft06"
@@ -867,18 +880,19 @@ if __name__ == '__main__':
         "instance_path": instance,
         "allow_illegal_actions": False,
         "stochastic_process_times": True,
-        "render_mode": "rgb_array"
     }
 
-    base_env = JssEnv(env_config)
+    base_env = gym.make("JSSEnv-v1", render_mode='rgb_array', new_step_api=True, env_config=env_config)
+    # base_env = JssEnv(env_config)
     # check_env(base_env)
 
     from gym.wrappers import RecordVideo
+
     save_path = "TestRecordVideo"
     uid = 1
     episode_trigger = 0
     base_env = RecordVideo(base_env, video_folder=save_path, episode_trigger=(lambda x: True),
-                      name_prefix=f"rl-video-{uid}", new_step_api=True)
+                           name_prefix=f"rl-video-{uid}", new_step_api=True)
 
     number_actions = base_env.action_space.n
     action_array = np.array(range(number_actions))
@@ -897,9 +911,9 @@ if __name__ == '__main__':
             action = random.choice(legal_actions)
             state, reward, done, truncated, info = base_env.step(action)
 
-            #print("1: ", reward["Scaled Reward"])
+            # print("1: ", reward["Scaled Reward"])
             return1 = return1 + reward["Scaled Reward"]
-            #print("2: ", reward["Makespan Reward"])
+            # print("2: ", reward["Makespan Reward"])
             return2 = return2 + reward["Makespan Reward"]
 
             legal_action_mask = state["action_mask"]
@@ -909,7 +923,3 @@ if __name__ == '__main__':
         print("return2", return2)
         print()
         base_env.render()
-
-
-
-
