@@ -16,7 +16,7 @@ setup(
     ],
     python_requires=">=3.6",
     install_requires=[
-        "gym",
+        "gym==0.25.1",
         "pandas",
         "numpy",
         "plotly",

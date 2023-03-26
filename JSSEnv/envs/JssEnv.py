@@ -357,11 +357,18 @@ class JssEnv(gym.Env):
         reward_dict["Scaled Reward"] = scaled_reward
         reward_dict["Makespan Reward"] = reward_makespan
 
+        observation = self._get_current_state_representation()
+
+        info = {}
+        terminated = is_done
+        truncated = False
+
         return (
-            self._get_current_state_representation(),
+            observation,
             reward_dict,
-            is_done,
-            {},
+            terminated,
+            truncated,
+            info,
         )
 
     def _handle_illegal_action(self, action):
@@ -835,17 +842,17 @@ class JssEnv(gym.Env):
 if __name__ == '__main__':
     from stable_baselines3.common.env_checker import check_env
 
-    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\flowshop.dir\ta120"
+    instance = r"C:\MYDOCUMENTS\Repos\Promotion_Bleidorn\instances\jobshop.dir\ft06"
     env_config = {
         "instance_path": instance,
-        "allow_illegal_actions": True,
+        "allow_illegal_actions": False,
         "stochastic_process_times": True
     }
 
     base_env = JssEnv(env_config)
     # check_env(base_env)
 
-    number_actions = base_env.action_space.n + 1
+    number_actions = base_env.action_space.n
     action_array = np.array(range(number_actions))
 
     num_episodes = 1
@@ -860,7 +867,7 @@ if __name__ == '__main__':
         return2 = 0
         while not done:
             action = random.choice(legal_actions)
-            state, reward, done, info = base_env.step(action)
+            state, reward, done, truncated, info = base_env.step(action)
 
             #print("1: ", reward["Scaled Reward"])
             return1 = return1 + reward["Scaled Reward"]
