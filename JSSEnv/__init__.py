@@ -1,3 +1,5 @@
+from JSSEnv import envs
+
 from gym.envs.registration import register
 
 register(
