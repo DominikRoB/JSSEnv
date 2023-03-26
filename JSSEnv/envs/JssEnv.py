@@ -1,5 +1,6 @@
 import bisect
 import datetime
+import math
 import os
 import random
 
@@ -85,7 +86,7 @@ class JssEnv(gym.Env):
         # check the parsed data are correct
         self._assert_parsed_data()
         # allocate a job + one to wait
-        self.action_space = gym.spaces.Discrete(self.jobs)
+        self.action_space = gym.spaces.Discrete(self.jobs + 1 )
         # used for plotting
         self.colors = [
             tuple([random.random() for _ in range(3)]) for _ in range(self.machines)
@@ -787,6 +788,48 @@ class JssEnv(gym.Env):
         time_until_available_prior = self.time_until_available_machine[machine]
         remaining_time = time_until_available_prior - time_passed
         self.time_until_available_machine[machine] = max(0, remaining_time)
+
+    def next_job_spt_operations(self):
+        """ Returns the next job according to the Shortest-Processing-Time Rule.
+        Durations are calculated on a per next operation basis
+         """
+        min_processing_time = math.inf
+        shortest_jobs = []
+        legal_actions = [ii for ii in range(0,len(self.legal_actions)) if self.legal_actions[ii]]
+        for action in legal_actions:
+            if action == self.action_space.n-1:
+                continue # Skip NoOp
+            operation = self.todo_time_step_job[action]
+            time_needed = self.get_time_needed(action, operation)
+            if time_needed < min_processing_time:
+                shortest_jobs = [action]
+            elif time_needed == min_processing_time:
+                shortest_jobs.append(action)
+
+        len_shortest = len(shortest_jobs)
+        choosen_job = shortest_jobs[int(random.random() * len_shortest)]
+        return choosen_job
+
+    def next_job_spt_jobs(self):
+        """ Returns the next job according to the Shortest-Processing-Time Rule.
+        Durations are calculated on a per next operation basis
+         """
+        min_processing_time = math.inf
+        shortest_jobs = []
+        legal_actions = [ii for ii in range(0,len(self.legal_actions)) if self.legal_actions[ii]]
+        for action in legal_actions:
+            if action == self.action_space.n-1:
+                continue # Skip NoOp
+
+            time_needed = self.instance_matrix[action].sum(axis=0)[1]
+            if time_needed < min_processing_time:
+                shortest_jobs = [action]
+            elif time_needed == min_processing_time:
+                shortest_jobs.append(action)
+
+        len_shortest = len(shortest_jobs)
+        choosen_job = shortest_jobs[int(random.random() * len_shortest)]
+        return choosen_job
 
 
 if __name__ == '__main__':
