@@ -37,7 +37,9 @@ class JssEnv(gym.Env):
         instance_path = env_config.get("instance_path", str(Path(__file__).parent.absolute()) + "/instances/ta15")
         allow_illegal_actions = env_config.get("allow_illegal_actions", True)
         stochastic_process_times = env_config.get("stochastic_process_times", False)
+        render_mode = env_config.get("render_mode", None)
 
+        self.render_mode = render_mode
         self._allow_illegal_actions = allow_illegal_actions
         self._stochastic_process_times = stochastic_process_times
         self.instance_name = os.path.basename(instance_path)
@@ -700,8 +702,19 @@ class JssEnv(gym.Env):
         calc_makespan = (test["Finish"].max() - test["Start"].min()).total_seconds()
         return calc_makespan
 
-    def render(self, mode="plotly"):
-        if mode == "plotly":
+    def render(self):
+        """
+
+        Convention:
+        None (default): no render is computed
+        human-<X>: render returns None, environment is rendered in display/terminal. For human consumption.
+        rgb_array: render returns a single frame. A frame is a numpy.ndarray with shape (x,y,3)
+
+        """
+        if not self.render_mode:
+            return
+
+        if self.render_mode == "human-plotly":
             df = self.create_schedule()
             fig = None
             if len(df) > 0:
@@ -717,7 +730,7 @@ class JssEnv(gym.Env):
                     autorange="reversed"
                 )  # otherwise tasks are listed from the bottom up
             return fig
-        elif mode == "ganttplotter":
+        elif self.render_mode == "human-ganttplotter" or self.render_mode == "rgb_array":
             from GanttPlotter import GanttJob, GanttPlotter
 
             resources_list = [f"Machine {unit}" for unit in range(self.machines)]
@@ -743,10 +756,17 @@ class JssEnv(gym.Env):
 
             description = f" Machines: {self.machines} \n Jobs: {self.jobs} \n \n Method: RL"
             title = f"{self.instance_name} - Makespan: {self.current_time_step}"
-            my_plotter.generate_gantt(title, description=description)
+            fig = my_plotter.generate_gantt(title, description=description)
 
-            my_plotter.show_gantt()
-            return
+
+            # TODO Properly Separate modes into human and rgb-array
+            fig.canvas.draw()
+            image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+            if self.render_mode == "human-ganttplotter":
+                my_plotter.show_gantt()
+            return image_from_plot
 
     def _add_decision_point(self, to_add_time_step, action):
         if to_add_time_step not in self.next_time_step:
@@ -846,11 +866,19 @@ if __name__ == '__main__':
     env_config = {
         "instance_path": instance,
         "allow_illegal_actions": False,
-        "stochastic_process_times": True
+        "stochastic_process_times": True,
+        "render_mode": "rgb_array"
     }
 
     base_env = JssEnv(env_config)
     # check_env(base_env)
+
+    from gym.wrappers import RecordVideo
+    save_path = "TestRecordVideo"
+    uid = 1
+    episode_trigger = 0
+    base_env = RecordVideo(base_env, video_folder=save_path, episode_trigger=(lambda x: True),
+                      name_prefix=f"rl-video-{uid}", new_step_api=True)
 
     number_actions = base_env.action_space.n
     action_array = np.array(range(number_actions))
@@ -880,5 +908,8 @@ if __name__ == '__main__':
         print("return1", return1)
         print("return2", return2)
         print()
-        fig = base_env.render(mode="ganttplotter")
-        fig.show()
+        base_env.render()
+
+
+
+
