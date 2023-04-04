@@ -3,6 +3,7 @@ import datetime
 import math
 import os
 import random
+from typing import Optional
 
 import pandas as pd
 import gym
@@ -11,6 +12,8 @@ import plotly.figure_factory as ff
 from pathlib import Path
 
 from matplotlib import pyplot as plt
+
+from JSSEnv.wrappers import ObjectiveWrapper
 
 
 class JssEnv(gym.Env):
@@ -174,7 +177,10 @@ class JssEnv(gym.Env):
     def get_legal_actions(self):
         return self.legal_actions
 
-    def reset(self):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        if seed:
+            self.seed(seed)
+
         self.current_time_step = 0
         self.next_time_step = list()
         self.next_jobs = list()
@@ -202,7 +208,8 @@ class JssEnv(gym.Env):
                 self.machine_legal[needed_machine] = True
                 self.nb_machine_legal += 1
         self.state = np.zeros((self.jobs, 7), dtype=float)
-        return self._get_current_state_representation()
+        info = {}
+        return self._get_current_state_representation(), info
 
     def _prioritization_non_final(self):
         """ Makes jobs, which have one operation left (: final jobs), illegal,
@@ -883,6 +890,7 @@ if __name__ == '__main__':
     }
 
     base_env = gym.make("JSSEnv-v1", render_mode='rgb_array', new_step_api=True, env_config=env_config)
+    # base_env = ObjectiveWrapper(base_env, "Scaled Reward")
     # base_env = JssEnv(env_config)
     # check_env(base_env)
 
