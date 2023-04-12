@@ -25,7 +25,6 @@ setup(
         "requests",
         "kaleido",
         "pytest",
-        "codecov",
         "GanttPlotter @ git+https://github.com/DominikRoB/GanttPlotter.git"
     ],
     include_package_data=True,
