@@ -208,8 +208,8 @@ class JssEnv(gym.Env):
                 self.machine_legal[needed_machine] = True
                 self.nb_machine_legal += 1
         self.state = np.zeros((self.jobs, 7), dtype=float)
-        info = {}
-        return self._get_current_state_representation(), info
+        info = {} # Expected in later Gym api as return value
+        return self._get_current_state_representation()
 
     def _prioritization_non_final(self):
         """ Makes jobs, which have one operation left (: final jobs), illegal,
