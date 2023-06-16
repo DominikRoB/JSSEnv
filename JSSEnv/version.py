@@ -1,2 +1,1 @@
-VERSION = "1.0.6"
 ENV_LIST = ["JSSEnv-v1"]

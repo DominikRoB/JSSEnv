@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "JSSEnv"
+version = "2.0.0"
+description = "An optimized OpenAI gym's environment to simulate the Job-Shop Scheduling problem. Orignally by Pierre Tassel, modified and extended by Dominik Bleidorn"
+authors = ["Pierre Tassel <pierre.tassel@aau.at>", "Dominik Bleidorn <dominikr.bleidorn@tu-dortmund.de>"]
+license = "MIT"
+repository = "https://github.com/DominikRoB/JSSEnv"
+readme = "README.md"
+packages = [{include = "JSSEnv"}]
+include = ["LICENSE", "JSSEnv/envs/instances/*"]
+keywords = ["Scheduling", "Reinforcement Learning", "OpenAI Gym"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+gym = "0.25.1"
+pandas = "^2.0.2"
+numpy = "^1.24.3"
+plotly = "^5.15.0"
+imageio = "^2.31.1"
+psutil = "^5.9.5"
+requests = "^2.31.0"
+kaleido = "0.2.1"
+pytest = "^7.3.2"
+ganttplotter = {git = "https://github.com/DominikRoB/GanttPlotter.git"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
